@@ -1,0 +1,60 @@
+{
+  "brand_name": "Luxearchive",
+  "brand_voice_summary": "Holloshoe and Hollomen both emphasize a blend of modern style with classic elegance, focusing on high-quality materials and sophisticated design. Holloshoe leans towards a rugged yet refined aesthetic, often highlighting heritage and street style elements. Hollomen, on the other hand, emphasizes a polished, executive look with a focus on comfort and subtle design details.",
+  "materials": [
+    "100% Genuine Leather",
+    "Burnished Brown Leather",
+    "Nubuck Leather",
+    "Patent Leather",
+    "Cotton",
+    "Viscose",
+    "Lambskin Suede"
+  ],
+  "sole_types": [
+    "Chunky Lug Sole",
+    "Layered Chunky Sole",
+    "Orange Contrast Sole",
+    "Platform Sole",
+    "Block Sole",
+    "Contrast Sole"
+  ],
+  "fit_types": [
+    "Slim Fit",
+    "Modern Slim Fit"
+  ],
+  "design_details": [
+    "Rugged Elegance",
+    "Heritage Detail",
+    "Minimalist",
+    "Statement",
+    "Smart Casual",
+    "Timeless",
+    "Monochromatic",
+    "High-Impact",
+    "Textured",
+    "Geometric Knit Motif",
+    "Vertical Ribbing",
+    "Diagonal Ribbed Panels"
+  ],
+  "brand_hooks": [
+    "Effortless Style",
+    "Heritage Appeal",
+    "Smart-Casual",
+    "Modern Classic",
+    "Statement Piece",
+    "Elevated Street-Style",
+    "Executive Finish",
+    "Luxury Drape"
+  ],
+  "naming_formula": "Brand Name + Descriptive Material + Design Feature + Product Type (e.g., 'Men's White Leather Low-Top Trainer - Minimalist Style')",
+  "tone_characteristics": {
+    "formality": "Moderately formal with a focus on elegance and sophistication.",
+    "adjective_density": "High, with frequent use of descriptive adjectives to convey luxury and style.",
+    "seo_patterns": "Product titles often include material, color, and style descriptors, likely to optimize for search relevance."
+  },
+  "_metadata": {
+    "products_analyzed": 20,
+    "sites_scraped": 3,
+    "generated_at": "2026-01-19 14:26:51"
+  }
+}

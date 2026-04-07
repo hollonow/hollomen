@@ -1,0 +1,40 @@
+# HolloEngine Dependencies
+# Agent 0: The Apprentice (Calibration)
+
+# Web Scraping
+requests==2.31.0
+beautifulsoup4==4.12.3
+# lxml==5.1.0  # Skipped - using built-in html.parser instead
+
+# LLM Integration
+openai>=1.0.0
+
+# Environment Management
+python-dotenv==1.0.1
+
+# Browser Automation (for Agent 1)
+playwright==1.48.0
+
+# Google Services (for Agent 1, 3)
+google-auth==2.35.0
+google-auth-oauthlib==1.2.1
+google-auth-httplib2==0.2.0
+google-api-python-client==2.150.0
+
+# Search API (for Agent 2)
+google-search-results==2.4.2
+
+# Utilities
+Pillow==10.4.0
+
+# Image Hosting (Alternative to Google Drive)
+cloudinary==1.41.0
+
+# Supabase (replaces Google Sheets)
+supabase>=2.0.0
+
+# Dashboard server
+flask>=3.0.0
+
+# Agent 5: WooCommerce Publisher
+woocommerce>=3.0.0

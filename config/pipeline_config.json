@@ -1,0 +1,6 @@
+{
+  "batch_size": 20,
+  "auto_advance": true,
+  "confidence_threshold": 0.65,
+  "auto_approve_reviews": false
+}

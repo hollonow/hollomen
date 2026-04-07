@@ -1,0 +1,24 @@
+{
+  "client_sites": [
+    {
+      "brand": "Hollostyle",
+      "url": "https://hollostyle.com/",
+      "description": "Hollostyle brand site"
+    },
+    {
+      "brand": "Holloshoe",
+      "url": "https://holloshoe.com/",
+      "description": "Holloshoe brand site"
+    },
+    {
+      "brand": "Hollomen",
+      "url": "https://www.hollomen.com/",
+      "description": "Hollomen brand site"
+    },
+    {
+      "brand": "Luxearchive",
+      "url": "https://luxearchive.com/",
+      "description": "Luxearchive brand site"
+    }
+  ]
+}

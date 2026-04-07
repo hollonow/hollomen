@@ -1,0 +1,2 @@
+Product_ID,Status,Source_URL,Supplier_ID,Raw_Chinese,English_Name_Draft,Material_Info,Designer_Brand,Product_Type,Final_Product_Name,SEO_Slug,Product_Description_HTML,GDrive_Folder_Link,Main_Image_File_ID,Image_Count,Scraped_At,Researched_At,Published_At,Notes
+PROD-001,PENDING,https://example.x.yupoo.com/albums/123456,,,,,,,,,,,,,,,Example row - replace with real data

@@ -1,0 +1,78 @@
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&family=DM+Mono:wght@400;500&display=swap');
+
+@import "tailwindcss";
+
+:root {
+  /* ── Backgrounds ──────────────────────────────────────────────────── */
+  --bg:          #F4F6FB;
+  --sidebar-bg:  #FFFFFF;
+  --surface:     #FFFFFF;
+  --surface-2:   #F0F3FA;
+  --surface-3:   #E8EDF8;
+
+  /* ── Borders ──────────────────────────────────────────────────────── */
+  --border:      #E2E8F4;
+  --border-md:   #C8D2E8;
+
+  /* ── Teal — the only accent color ────────────────────────────────── */
+  --teal:        #0D9488;
+  --teal-light:  #CCFBF1;
+  --teal-mid:    #14B8A6;
+  --teal-dim:    rgba(13,148,136,0.07);
+  --teal-glow:   rgba(13,148,136,0.18);
+
+  /* ── Indigo / WP Blue ─────────────────────────────────────────────── */
+  --indigo:      #4F46E5;
+  --indigo-dim:  rgba(79,70,229,0.07);
+  --wp-blue:     #3858E9;
+  --wp-blue-dim: rgba(56,88,233,0.07);
+
+  /* ── Semantic ─────────────────────────────────────────────────────── */
+  --success:        #16A34A;
+  --success-dim:    #DCFCE7;
+  --success-border: rgba(22,163,74,0.2);
+  --warning:        #D97706;
+  --warning-dim:    #FEF3C7;
+  --warning-border: rgba(217,119,6,0.2);
+  --error:          #DC2626;
+  --error-dim:      #FEE2E2;
+  --error-border:   rgba(220,38,38,0.2);
+
+  /* ── Text ─────────────────────────────────────────────────────────── */
+  --text-primary:   #0F172A;
+  --text-secondary: #475569;
+  --text-muted:     #94A3B8;
+
+  /* ── Shadows ──────────────────────────────────────────────────────── */
+  --shadow-xs:   0 1px 2px rgba(15,23,42,0.05);
+  --shadow-sm:   0 1px 4px rgba(15,23,42,0.07), 0 1px 2px rgba(15,23,42,0.04);
+  --shadow-md:   0 4px 16px rgba(15,23,42,0.09), 0 2px 4px rgba(15,23,42,0.04);
+  --shadow-teal: 0 4px 16px rgba(13,148,136,0.18);
+  --shadow-card: 0 2px 8px rgba(15,23,42,0.06), 0 0 0 1px rgba(15,23,42,0.04);
+
+  /* ── Fonts ────────────────────────────────────────────────────────── */
+  --font-display: 'Bricolage Grotesque', sans-serif;
+  --font-body:    'DM Sans', sans-serif;
+  --font-mono:    'DM Mono', monospace;
+
+  /* ── Layout ───────────────────────────────────────────────────────── */
+  --sidebar-width: 224px;
+
+  /* ── Bridge aliases — keep while other pages migrate ─────────────── */
+  --accent:        var(--teal);
+  --accent-dim:    var(--teal-dim);
+  --accent-glow:   var(--teal-glow);
+  --sidebar:       var(--sidebar-bg);
+  --gold:          var(--teal);
+  --gold-dim:      var(--teal-dim);
+  --border-bright: var(--border-md);
+}
+
+body {
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+}
+
+a { text-decoration: none; }
+button { cursor: pointer; }

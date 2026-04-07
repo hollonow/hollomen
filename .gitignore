@@ -1,0 +1,77 @@
+# Environment & secrets — NEVER commit these
+.env
+.env.*
+!.env.example
+
+# Google credentials
+config/service_account.json
+config/client_secret.json
+config/token.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+
+# Temp files created by agents
+.tmp/
+logs/*.log
+
+# Node / Next.js
+ui/node_modules/
+ui/.next/
+ui/.env.local
+ui/.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Internal docs — not for public repo
+CLAUDE.md
+MIGRATION_LOG.md
+ARCHITECTURE.md
+DRIVE_SETUP_ISSUE.md
+SHEETS_STATUS_DROPDOWN.md
+AGENT1_FLOW.md
+STATUS_AGENT1.md
+NEXT_STEPS.md
+TODO.md
+security.md
+README_AGENT1.md
+README_CLOUDINARY_SETUP.md
+DESIGN.md
+docs/
+directives/
+
+# Internal credentials & config
+config/yupoo_creds.json
+.claude/
+
+# Presentations & HTML overviews
+HolloEngine_Presentation*.pptx
+holloengine-overview*.html
+
+# Dev utility scripts
+build_ppt.py
+auth_google.py
+_write_report.js
+
+# Temp files
+execution/.tmp/
+execution/nul
+nul
+=2.0.0
+
+# Stray files
+*.woff2
+*.woff
+
+# Log folder
+logs/
+!logs/.gitkeep
