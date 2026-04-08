@@ -53,7 +53,8 @@ export async function POST(req: Request) {
     const count = await appendRows(rows)
     return NextResponse.json({ success: true, count, product_ids: rows.map(r => r.product_id) })
   } catch (err) {
-    console.error('[/api/add-url]', err)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    const message = err instanceof Error ? err.message : String(err)
+    console.error('[/api/add-url]', message)
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }
