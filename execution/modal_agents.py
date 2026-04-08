@@ -68,7 +68,7 @@ image = (
 )
 
 # Modal secret — set all env vars in the Modal dashboard under "hollomen"
-secrets = [modal.Secret.from_name("Hollo-men")]
+secrets = [modal.Secret.from_name("hollomen")]
 
 # Shared kwargs for long-running worker functions
 WORKER_KWARGS = dict(
