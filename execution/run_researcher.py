@@ -121,7 +121,7 @@ class ResearcherOrchestrator:
 
         # Required environment variables
         self.openai_api_key = os.getenv('OPENAI_API_KEY')
-        self.serpapi_key = os.getenv('SERPAPI_KEY')
+        self.serpapi_key = os.getenv('SERPAPI_API_KEY')
 
         # Attribute matrix path
         self.attribute_matrix_path = self._resolve_path(
@@ -165,7 +165,7 @@ class ResearcherOrchestrator:
         if not self.openai_api_key:
             missing.append('OPENAI_API_KEY')
         if not self.serpapi_key:
-            missing.append('SERPAPI_KEY')
+            missing.append('SERPAPI_API_KEY')
         if not Path(self.attribute_matrix_path).exists():
             missing.append(f'Attribute matrix not found: {self.attribute_matrix_path}')
 

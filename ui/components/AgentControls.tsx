@@ -47,9 +47,10 @@ interface Props {
 
 // Parse log line timestamp; return ms since epoch or null if unparseable
 function parseLogTimestamp(line: string): number | null {
-  const m = line.match(/\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}),\d+\]/)
+  const m = line.match(/\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}),\d+(Z?)\]/)
   if (!m) return null
-  return new Date(m[1].replace(' ', 'T')).getTime()
+  // Supabase-sourced lines have 'Z' suffix (UTC); local log file lines do not (local time).
+  return new Date(m[1].replace(' ', 'T') + m[2]).getTime()
 }
 
 // Extract batch result from current-run log lines: "done · 3 ok" or "done · 2 ok, 1 failed"

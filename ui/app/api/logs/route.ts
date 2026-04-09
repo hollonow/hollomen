@@ -41,7 +41,7 @@ function formatLogRow(row: { created_at: string; agent: string; level: string; m
   // ISO → "YYYY-MM-DD HH:MM:SS,mmm" (matches Python's %(asctime)s format)
   const ts = d.toISOString()
     .replace('T', ' ')
-    .replace(/\.(\d{3})\d*Z$/, ',$1')
+    .replace(/\.(\d{3})\d*Z$/, ',$1Z')
   return `[${prefix}] [${ts}] [${level}] ${row.message}`
 }
 
