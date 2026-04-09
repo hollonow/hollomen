@@ -38,9 +38,6 @@ import modal
 
 app = modal.App("hollomen-agents")
 
-# Volume for persistent config (attribute_matrix.json survives between runs)
-config_vol = modal.Volume.from_name("hollomen-config", create_if_missing=True)
-
 # Base image — install all Python dependencies + Playwright browser
 image = (
     modal.Image.debian_slim(python_version="3.11")
@@ -74,7 +71,6 @@ secrets = [modal.Secret.from_name("Hollo-men")]
 WORKER_KWARGS = dict(
     image=image,
     secrets=secrets,
-    volumes={"/app/config": config_vol},
     timeout=7200,   # 2 hours
     retries=0,      # Agents handle their own retries internally
 )
