@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import fs from 'fs'
 import path from 'path'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { requireAuth } from '@/lib/auth'
 
 const LOG_FILES: Record<string, string> = {
@@ -38,19 +39,35 @@ export async function POST(req: Request) {
     }
 
     const logPath = path.join(LOGS_DIR, LOG_FILES[agent])
-    if (!fs.existsSync(logPath)) {
-      return NextResponse.json({ summary: 'Log file not found.' })
+
+    let runLines: string[]
+
+    if (fs.existsSync(logPath)) {
+      // Local dev: read from filesystem
+      const raw   = fs.readFileSync(logPath, 'utf-8')
+      const lines = raw.split('\n').filter(Boolean)
+      runLines = lines.filter(line => {
+        const ts = parseLogLineMs(line)
+        if (ts === null) return true
+        return ts >= startedAt
+      })
+    } else {
+      // Vercel / Modal deployment: fall back to Supabase pipeline_logs
+      const sb = createSupabaseClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      )
+      const { data: logRows } = await sb
+        .from('pipeline_logs')
+        .select('message, level, created_at')
+        .eq('agent', agent)
+        .gte('created_at', new Date(startedAt).toISOString())
+        .order('created_at', { ascending: true })
+        .limit(300)
+
+      if (!logRows?.length) return NextResponse.json({ summary: null })
+      runLines = logRows.map(r => `[${r.level ?? 'INFO'}] ${r.message}`)
     }
-
-    const raw   = fs.readFileSync(logPath, 'utf-8')
-    const lines = raw.split('\n').filter(Boolean)
-
-    // Filter to current run's lines only
-    const runLines = lines.filter(line => {
-      const ts = parseLogLineMs(line)
-      if (ts === null) return true
-      return ts >= startedAt
-    })
 
     // Extract error lines + one line of context before each
     const errorLines: string[] = []

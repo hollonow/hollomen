@@ -36,8 +36,10 @@ export async function POST(request: Request) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://tool.luxearchive.com'
   const { error } = await adminClient.auth.admin.inviteUserByEmail(email, {
     data: { role },
+    redirectTo: `${siteUrl}/auth/callback?type=invite`,
   })
 
   if (error) {
