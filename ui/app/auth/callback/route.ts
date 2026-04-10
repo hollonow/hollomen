@@ -6,7 +6,7 @@ export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
   const code      = searchParams.get('code')
   const tokenHash = searchParams.get('token_hash')
-  const type      = searchParams.get('type')
+  const type      = searchParams.get('type')   // used for OTP verification; not used for routing
   const next      = searchParams.get('next') ?? '/'
 
   const cookieStore = await cookies()
@@ -37,8 +37,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/login?error=auth_callback_failed`)
   }
 
-  // Invite flow — user must set a password before entering the dashboard
-  if (type === 'invite') return NextResponse.redirect(`${origin}/auth/set-password`)
-
+  // Redirect to next (e.g. /reset-password, /auth/set-password for invites, or / for everything else)
   return NextResponse.redirect(`${origin}${next}`)
 }

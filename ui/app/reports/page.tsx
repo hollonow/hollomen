@@ -781,6 +781,13 @@ export default function ReportsPage() {
                   </div>
                 </div>
               )}
+              {/* Empty state — shown when pipeline has run but no completed products yet */}
+              {analytics.throughput.length === 0 && analytics.productTimeline.length === 0 && Object.keys(analytics.failureBreakdown).length === 0 && (
+                <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--text-muted)', fontSize: 13, border: '1px solid var(--border)', borderRadius: 10, background: 'var(--surface)' }}>
+                  No completed products yet — analytics will populate once products reach{' '}
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-secondary)' }}>PENDING_APPROVAL</span>.
+                </div>
+              )}
             </div>
           )
         )}

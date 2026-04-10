@@ -62,6 +62,9 @@ export default function AddProductsModal() {
       if (res.ok) {
         setUrl('')
         close()
+        if (runMode === 'full') {
+          window.dispatchEvent(new CustomEvent('hollomen:runFullPipeline'))
+        }
       }
     } finally {
       setSubmitting(false)

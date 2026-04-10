@@ -276,7 +276,7 @@ export default function Overview() {
   }, [])
 
   useEffect(() => {
-    const id = setInterval(silentRefresh, 10_000)
+    const id = setInterval(silentRefresh, 3_000)
     return () => clearInterval(id)
   }, [silentRefresh])
 
@@ -327,7 +327,7 @@ export default function Overview() {
     }
 
     poll()
-    const id = setInterval(poll, 5000)
+    const id = setInterval(poll, 3_000)
     return () => { cancelled = true; clearInterval(id) }
   }, [activeAgentIdx, agentStartedAt])
 
@@ -432,6 +432,15 @@ export default function Overview() {
       setPipelineStatus(null)
     }
   }, [pipelineRunning, runAgent]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── AddProductsModal → Full Pipeline trigger ────────────────────────────────
+  // The modal dispatches 'hollomen:runFullPipeline' after a successful URL submit
+  // when the user selected "Full Pipeline" run mode.
+  useEffect(() => {
+    const handler = () => runFullPipeline()
+    window.addEventListener('hollomen:runFullPipeline', handler)
+    return () => window.removeEventListener('hollomen:runFullPipeline', handler)
+  }, [runFullPipeline])
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
