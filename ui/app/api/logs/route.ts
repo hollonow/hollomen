@@ -33,7 +33,7 @@ function parseLogLineMs(line: string): number | null {
 }
 
 // Format a Supabase pipeline_logs row as a log line matching the local file format.
-// Result: [AGENT_N] [YYYY-MM-DD HH:MM:SS,mmm] [LEVEL] message
+// Result: [AGENT_N] [YYYY-MM-DD HH:MM:SS,mmmZ] [LEVEL] message  (Z suffix = UTC, for parseLogTimestamp)
 function formatLogRow(row: { created_at: string; agent: string; level: string; message: string }): string {
   const prefix = AGENT_PREFIX[row.agent] ?? row.agent.toUpperCase()
   const level  = (row.level ?? 'INFO').toUpperCase()

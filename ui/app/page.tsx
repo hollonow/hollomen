@@ -33,9 +33,10 @@ const INTEGRATIONS = [
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function parseLogTimestamp(line: string): number | null {
-  const m = line.match(/\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}),\d+\]/)
+  const m = line.match(/\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}),\d+(Z?)\]/)
   if (!m) return null
-  return new Date(m[1].replace(' ', 'T')).getTime()
+  // Supabase-sourced lines have 'Z' suffix (UTC); local log file lines do not (local time).
+  return new Date(m[1].replace(' ', 'T') + m[2]).getTime()
 }
 
 function formatMs(ms: number): string {
@@ -56,8 +57,9 @@ function timeAgo(ms: number): string {
 }
 
 function stripLogPrefix(raw: string): string {
-  // Actual format: [AGENT_N] [2026-03-20 22:16:52,453] [INFO] message
-  return raw.replace(/^\[AGENT_\d+\]\s*\[[\d\-: ,]+\]\s*\[\w+\]\s*/i, '').trim()
+  // Format: [AGENT_N] [YYYY-MM-DD HH:MM:SS,mmm] [LEVEL] message
+  // Supabase lines include a trailing Z in the timestamp bracket — character class must cover it.
+  return raw.replace(/^\[AGENT_\d+\]\s*\[[\d\-: ,Z]+\]\s*\[\w+\]\s*/i, '').trim()
 }
 
 function isLogNoise(line: string): boolean {
@@ -268,12 +270,15 @@ export default function Overview() {
           ? lines.filter(l => { const ts = parseLogTimestamp(l); return ts === null || ts >= startedAt })
           : lines
 
-        if (currentRunLines.some(l => DONE_PATTERN.test(l))) {
+        // Only trigger forcedStopped when we have a trusted startedAt — otherwise old run
+        // log lines (BATCH PROCESSING COMPLETE from a previous run) would immediately hide
+        // the stop button on page refresh before the agent has had a chance to run.
+        if (startedAt > 0 && currentRunLines.some(l => DONE_PATTERN.test(l))) {
           if (!cancelled) setForcedStopped(s => ({ ...s, [key]: true }))
         }
 
         const cleaned = currentRunLines
-          .filter(l => (l.includes('[INFO]') || l.includes('[WARNING]')) && !isLogNoise(l))
+          .filter(l => (l.includes('[INFO]') || l.includes('[WARNING]') || l.includes('[ERROR]') || l.includes('[CRITICAL]')) && !isLogNoise(l))
           .map(stripLogPrefix)
           .filter(l => l.length > 0 && !/^=+$/.test(l) && !/^-+$/.test(l))
           .slice(-4)
