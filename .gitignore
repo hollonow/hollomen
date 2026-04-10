@@ -27,6 +27,7 @@ ui/node_modules/
 ui/.next/
 ui/.env.local
 ui/.env.*.local
+ui/.env.vercel
 
 # OS
 .DS_Store

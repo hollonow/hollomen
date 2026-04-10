@@ -20,6 +20,19 @@ const AGENT_INFO = [
   { key: 'agent5', num: 5, name: 'Publisher',  runLabel: 'Run Publisher', triggerStatus: 'PUBLISHED'          },
 ] as const
 
+// Pipeline step definitions — triggerStatus is what agent reads, claimingStatus is what it writes
+// while processing. Both must drain to zero before we advance to the next step.
+const PIPELINE_STEPS = [
+  { key: 'agent1', name: 'Miner',     triggerStatus: 'READY_FOR_SCRAPE',   claimingStatus: 'SCRAPING'    },
+  { key: 'agent2', name: 'Architect', triggerStatus: 'READY_FOR_RESEARCH', claimingStatus: 'RESEARCHING' },
+  { key: 'agent3', name: 'Voice',     triggerStatus: 'READY_FOR_SEO',      claimingStatus: 'WRITING_SEO' },
+  { key: 'agent4', name: 'Optimizer', triggerStatus: 'READY_FOR_PUBLISH',  claimingStatus: 'OPTIMIZING'  },
+  { key: 'agent5', name: 'Publisher', triggerStatus: 'PUBLISHED',          claimingStatus: 'PUBLISHING'  },
+] as const
+
+const PIPELINE_POLL_MS    = 5_000
+const PIPELINE_TIMEOUT_MS = 30 * 60_000  // 30 min per agent before giving up
+
 const AGENT_COLORS = ['#0D9488', '#D97706', '#16A34A', '#4F46E5', '#14B8A6']
 const AGENT_RADII  = [20, 30, 40, 50, 60]  // Miner → Publisher
 
@@ -95,6 +108,8 @@ export default function Overview() {
   const [running, setRunning]             = useState<Record<string, boolean>>({})
   const [forcedStopped, setForcedStopped] = useState<Record<string, boolean>>({})
   const [agentStartedAt, setAgentStartedAt] = useState<Record<string, number>>({})
+  const [pipelineRunning, setPipelineRunning] = useState(false)
+  const [pipelineStatus,  setPipelineStatus]  = useState<string | null>(null)
   const [toast, setToast]                 = useState<{ msg: string; type: 'ok' | 'err' } | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const supabase = useMemo(() => createClient(), [])
@@ -240,6 +255,31 @@ export default function Overview() {
 
   useEffect(() => { loadData() }, [loadData])
 
+  // Silent background refresh — no spinner, no flicker.
+  // Fallback for when the Supabase realtime WebSocket drops (common on Vercel/cloud).
+  // Keeps products + sessions fresh so agentRunning, activeAgentIdx, log polling,
+  // and stop button visibility all stay accurate without a manual page refresh.
+  const silentRefresh = useCallback(async () => {
+    try {
+      const [res, sessRes] = await Promise.all([
+        fetch('/api/data', { cache: 'no-store' }),
+        fetch('/api/reports/sessions'),
+      ])
+      if (!res.ok) return
+      const d = await res.json()
+      setProducts(d.products ?? [])
+      if (sessRes.ok) {
+        const sd = await sessRes.json()
+        setSessions(sd.sessions ?? [])
+      }
+    } catch { /* silent — never interrupt the UI */ }
+  }, [])
+
+  useEffect(() => {
+    const id = setInterval(silentRefresh, 10_000)
+    return () => clearInterval(id)
+  }, [silentRefresh])
+
   // Realtime
   useEffect(() => {
     const ch = supabase
@@ -327,11 +367,71 @@ export default function Overview() {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const runFullPipeline = useCallback(async () => {
+    if (pipelineRunning) return
     setForcedStopped({})
-    for (const { key } of AGENT_INFO) {
-      await runAgent(key)
+    setPipelineRunning(true)
+    setPipelineStatus('Starting…')
+
+    try {
+      for (const step of PIPELINE_STEPS) {
+        // Always fetch fresh data — don't trust stale React state for gate decisions
+        let freshProducts: Product[] = []
+        try {
+          const res = await fetch('/api/data', { cache: 'no-store' })
+          const d   = await res.json()
+          freshProducts = d.products ?? []
+          setProducts(freshProducts)  // keep UI in sync
+        } catch {
+          showToast('Pipeline: failed to fetch product data', 'err')
+          break
+        }
+
+        const pending = freshProducts.filter(p => p.status === step.triggerStatus)
+        if (pending.length === 0) continue  // nothing queued at this stage — skip
+
+        setPipelineStatus(`${step.name}: starting (${pending.length} products)…`)
+        await runAgent(step.key)
+
+        // Wait until both triggerStatus AND claimingStatus queues drain to zero.
+        // Also confirm stable — transient zero counts happen between atomic claim operations.
+        const deadline = Date.now() + PIPELINE_TIMEOUT_MS
+        while (Date.now() < deadline) {
+          await new Promise(r => setTimeout(r, PIPELINE_POLL_MS))
+          try {
+            const res  = await fetch('/api/data', { cache: 'no-store' })
+            const d    = await res.json()
+            const all: Product[] = d.products ?? []
+            setProducts(all)
+            const remaining = all.filter(
+              p => p.status === step.triggerStatus || p.status === step.claimingStatus
+            )
+            if (remaining.length > 0) {
+              setPipelineStatus(`${step.name}: ${remaining.length} remaining…`)
+              continue
+            }
+            // Looks drained — confirm with one more poll to guard against transient zero
+            await new Promise(r => setTimeout(r, PIPELINE_POLL_MS))
+            const res2   = await fetch('/api/data', { cache: 'no-store' })
+            const d2     = await res2.json()
+            const all2: Product[] = d2.products ?? []
+            setProducts(all2)
+            const still  = all2.filter(
+              p => p.status === step.triggerStatus || p.status === step.claimingStatus
+            )
+            if (still.length === 0) break  // confirmed — advance to next step
+            setPipelineStatus(`${step.name}: ${still.length} remaining…`)
+          } catch { /* network hiccup — keep polling */ }
+        }
+      }
+
+      showToast('Full pipeline complete.', 'ok')
+    } catch (e) {
+      showToast(`Pipeline error: ${e}`, 'err')
+    } finally {
+      setPipelineRunning(false)
+      setPipelineStatus(null)
     }
-  }, [runAgent])
+  }, [pipelineRunning, runAgent]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -349,6 +449,7 @@ export default function Overview() {
           0%{left:-5px;opacity:0}10%{opacity:1}90%{opacity:1}100%{left:105%;opacity:0}
         }
         @keyframes ovFade{to{opacity:1;transform:translateY(0)}}
+        @keyframes spin{to{transform:rotate(360deg)}}
         .ov-row{opacity:0;transform:translateY(8px);animation:ovFade 0.4s ease forwards}
         .ov-row:nth-child(1){animation-delay:0.04s}
         .ov-row:nth-child(2){animation-delay:0.08s}
@@ -535,9 +636,13 @@ export default function Overview() {
             background: 'linear-gradient(to right, rgba(13,148,136,0.03), transparent)',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ width: 7, height: 7, borderRadius: '50%', background: isPipelineRunning ? 'var(--success)' : 'var(--text-muted)', animation: isPipelineRunning ? 'blink 1.8s ease-in-out infinite' : 'none' }} />
+              <div style={{ width: 7, height: 7, borderRadius: '50%', background: (isPipelineRunning || pipelineRunning) ? 'var(--success)' : 'var(--text-muted)', animation: (isPipelineRunning || pipelineRunning) ? 'blink 1.8s ease-in-out infinite' : 'none' }} />
               <span style={{ fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>Full Pipeline</span>
-              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>· 5 agents · auto-advancing</span>
+              {pipelineStatus ? (
+                <span style={{ fontSize: 12, color: 'var(--teal)', fontFamily: 'var(--font-mono)' }}>{pipelineStatus}</span>
+              ) : (
+                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>· 5 agents · auto-advancing</span>
+              )}
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               {isPipelineRunning && activeAgentIdx >= 0 && (
@@ -553,12 +658,22 @@ export default function Overview() {
               )}
               <button
                 onClick={runFullPipeline}
-                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 20px', borderRadius: 9, background: 'var(--teal)', border: '1px solid var(--teal)', color: '#fff', fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 500, cursor: 'pointer', transition: 'all 0.13s', boxShadow: 'var(--shadow-teal)', letterSpacing: '0.1px' }}
-                onMouseEnter={e => { e.currentTarget.style.background = '#0F766E'; e.currentTarget.style.transform = 'translateY(-1px)' }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'var(--teal)'; e.currentTarget.style.transform = 'translateY(0)' }}
+                disabled={pipelineRunning}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 20px', borderRadius: 9, background: pipelineRunning ? 'var(--surface-2)' : 'var(--teal)', border: `1px solid ${pipelineRunning ? 'var(--border)' : 'var(--teal)'}`, color: pipelineRunning ? 'var(--text-muted)' : '#fff', fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 500, cursor: pipelineRunning ? 'default' : 'pointer', transition: 'all 0.13s', boxShadow: pipelineRunning ? 'none' : 'var(--shadow-teal)', letterSpacing: '0.1px' }}
+                onMouseEnter={e => { if (!pipelineRunning) { e.currentTarget.style.background = '#0F766E'; e.currentTarget.style.transform = 'translateY(-1px)' } }}
+                onMouseLeave={e => { if (!pipelineRunning) { e.currentTarget.style.background = 'var(--teal)'; e.currentTarget.style.transform = 'translateY(0)' } }}
               >
-                <PlayIcon size={14} />
-                Run Full Pipeline
+                {pipelineRunning ? (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ width: 12, height: 12, borderRadius: '50%', border: '2px solid var(--border-md)', borderTopColor: 'var(--teal)', animation: 'spin 0.7s linear infinite', display: 'inline-block' }} />
+                    Running…
+                  </span>
+                ) : (
+                  <>
+                    <PlayIcon size={14} />
+                    Run Full Pipeline
+                  </>
+                )}
               </button>
             </div>
           </div>

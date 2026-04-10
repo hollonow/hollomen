@@ -88,6 +88,13 @@ function parseLogLevel(line: string): 'ERROR' | 'WARNING' | 'INFO' {
   return 'INFO'
 }
 
+// Python agents log Supabase exceptions as raw dict strings, e.g.:
+//   ❌ Error processing XYZ: {'message': 'new row ... violates check constraint', 'code': '23514', ...}
+// Extract just the human-readable 'message' value so session logs are readable.
+function cleanLogLine(line: string): string {
+  return line.replace(/\{'message':\s*'([^']+)'[^}]*\}/g, (_, msg) => msg)
+}
+
 function SessionLogs({ session, onClose }: { session: RunSession; onClose: () => void }) {
   const [lines, setLines]     = useState<string[]>([])
   const [loading, setLoading] = useState(true)
@@ -155,7 +162,7 @@ function SessionLogs({ session, onClose }: { session: RunSession; onClose: () =>
             visible.map((line, i) => {
               const lvl = parseLogLevel(line)
               return (
-                <div key={i} style={{ color: lvl === 'ERROR' ? 'var(--error)' : lvl === 'WARNING' ? 'var(--warning)' : 'var(--text-secondary)' }}>{line}</div>
+                <div key={i} style={{ color: lvl === 'ERROR' ? 'var(--error)' : lvl === 'WARNING' ? 'var(--warning)' : 'var(--text-secondary)' }}>{cleanLogLine(line)}</div>
               )
             })
           )}
