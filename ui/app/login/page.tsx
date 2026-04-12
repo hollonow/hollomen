@@ -14,15 +14,43 @@ export default function LoginPage() {
   const router = useRouter()
   const supabase = createClient()
 
-  // Show error if Supabase redirected here after a failed/expired link
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const err = params.get('error') ?? ''
+    // Supabase always redirects to the Site URL (this page) with tokens in the hash.
+    // We intercept here and call setSession() directly so the user reaches the right page.
+    const hash = window.location.hash.replace(/^#/, '')
+    const hashParams = new URLSearchParams(hash)
+    const accessToken  = hashParams.get('access_token')
+    const refreshToken = hashParams.get('refresh_token')
+    const type         = hashParams.get('type')
+    const errorCode    = hashParams.get('error_code')
+
+    if (errorCode) {
+      setError('That link has expired or is invalid. Please request a new one.')
+      return
+    }
+
+    if (accessToken && refreshToken) {
+      // Clear the hash from the URL bar so tokens aren't visible
+      window.history.replaceState(null, '', window.location.pathname)
+      supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+        .then(({ error }) => {
+          if (error) { setError('Authentication failed. Please try again.'); return }
+          if (type === 'recovery') router.replace('/reset-password')
+          else if (type === 'invite') router.replace('/auth/set-password')
+          else router.replace('/')
+        })
+      return
+    }
+
+    // Query-param errors from /auth/confirm or /auth/callback
+    const queryParams = new URLSearchParams(window.location.search)
+    const err = queryParams.get('error') ?? ''
     if (err.includes('expired') || err === 'link_invalid') {
       setError('That link has expired. Please request a new one.')
     } else if (err === 'auth_failed' || err === 'auth_callback_failed') {
       setError('Authentication failed. Please try again.')
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
