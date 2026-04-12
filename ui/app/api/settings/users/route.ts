@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 
 export async function GET() {
@@ -17,15 +18,40 @@ export async function GET() {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const { data: users, error } = await supabase
-    .from('profiles')
-    .select('id, email, full_name, role, created_at')
-    .order('created_at', { ascending: true })
-
-  if (error) {
-    console.error('[/api/settings/users]', error)
+  // Fetch emails from auth.users (requires service role — profiles table doesn't store email)
+  const adminClient = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+  const { data: { users: authUsers }, error: authError } = await adminClient.auth.admin.listUsers()
+  if (authError) {
+    console.error('[/api/settings/users] listUsers:', authError)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
+
+  // Fetch roles and display names from profiles
+  const { data: profiles, error: profilesError } = await supabase
+    .from('profiles')
+    .select('id, full_name, role, created_at')
+    .order('created_at', { ascending: true })
+
+  if (profilesError) {
+    console.error('[/api/settings/users] profiles:', profilesError)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+
+  // Merge: auth.users provides email, profiles provides role + display name
+  const profileMap = new Map((profiles ?? []).map(p => [p.id, p]))
+  const users = authUsers.map(authUser => {
+    const profile = profileMap.get(authUser.id)
+    return {
+      id: authUser.id,
+      email: authUser.email ?? '',
+      full_name: profile?.full_name ?? null,
+      role: profile?.role ?? 'viewer',
+      created_at: profile?.created_at ?? authUser.created_at,
+    }
+  }).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
 
   return NextResponse.json({ users })
 }

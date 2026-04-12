@@ -39,7 +39,7 @@ export async function POST(request: Request) {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://tool.luxearchive.com'
   const { error } = await adminClient.auth.admin.inviteUserByEmail(email, {
     data: { role },
-    redirectTo: `${siteUrl}/auth/callback?next=/auth/set-password`,
+    redirectTo: `${siteUrl}/auth/confirm`,
   })
 
   if (error) {
