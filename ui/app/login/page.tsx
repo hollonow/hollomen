@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/browser'
 import { useRouter } from 'next/navigation'
 
@@ -13,6 +13,17 @@ export default function LoginPage() {
   const [mode, setMode] = useState<'login' | 'reset'>('login')
   const router = useRouter()
   const supabase = createClient()
+
+  // Show error if Supabase redirected here after a failed/expired link
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const err = params.get('error') ?? ''
+    if (err.includes('expired') || err === 'link_invalid') {
+      setError('That link has expired. Please request a new one.')
+    } else if (err === 'auth_failed' || err === 'auth_callback_failed') {
+      setError('Authentication failed. Please try again.')
+    }
+  }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()

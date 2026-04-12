@@ -4,35 +4,52 @@ import { useEffect } from 'react'
 import { createClient } from '@/lib/supabase/browser'
 import { useRouter } from 'next/navigation'
 
-// Client-side page that handles Supabase hash-based tokens.
+// Handles Supabase hash-based auth tokens.
 // Supabase appends #access_token=...&type=recovery|invite to the redirectTo URL.
 // Hashes never reach the server, so /auth/callback can't process them.
-// This page lets the browser client read the hash, establish the session,
-// then route to the correct destination.
+// We extract tokens directly from the hash and call setSession() explicitly.
 export default function AuthConfirmPage() {
   const router = useRouter()
   const supabase = createClient()
 
   useEffect(() => {
-    // Parse the type out of the URL hash before Supabase consumes it.
-    const hash = window.location.hash
-    const params = new URLSearchParams(hash.replace(/^#/, ''))
-    const type = params.get('type') // 'recovery' | 'invite' | 'signup' | etc.
+    const hash = window.location.hash.replace(/^#/, '')
+    const params = new URLSearchParams(hash)
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && type === 'recovery')) {
-        router.replace('/reset-password')
-      } else if (event === 'SIGNED_IN' && type === 'invite') {
-        router.replace('/auth/set-password')
-      } else if (event === 'SIGNED_IN') {
-        router.replace('/')
-      }
-    })
+    const accessToken  = params.get('access_token')
+    const refreshToken = params.get('refresh_token')
+    const type         = params.get('type')         // 'recovery' | 'invite'
+    const errorCode    = params.get('error_code')
+    const errorDesc    = params.get('error_description')
 
-    // Trigger session detection from the hash fragment.
-    supabase.auth.getSession()
+    // Supabase puts error info in the hash when the token is expired or invalid.
+    // Redirect to login with a readable message.
+    if (errorCode || !accessToken || !refreshToken) {
+      const msg = errorDesc
+        ? encodeURIComponent(errorDesc.replace(/\+/g, ' '))
+        : 'link_invalid'
+      router.replace(`/login?error=${msg}`)
+      return
+    }
 
-    return () => subscription.unsubscribe()
+    // Explicitly establish the session from the hash tokens.
+    // This is more reliable than onAuthStateChange which can fire before
+    // React registers the listener.
+    supabase.auth
+      .setSession({ access_token: accessToken, refresh_token: refreshToken })
+      .then(({ error }) => {
+        if (error) {
+          router.replace('/login?error=auth_failed')
+          return
+        }
+        if (type === 'recovery') {
+          router.replace('/reset-password')
+        } else if (type === 'invite') {
+          router.replace('/auth/set-password')
+        } else {
+          router.replace('/')
+        }
+      })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
