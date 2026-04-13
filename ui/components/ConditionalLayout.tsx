@@ -6,7 +6,8 @@ import AddProductsModal from './AddProductsModal'
 
 export default function ConditionalLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  if (pathname === '/login') return <>{children}</>
+  const isAuthPage = pathname === '/login' || pathname.startsWith('/auth/') || pathname === '/reset-password'
+  if (isAuthPage) return <>{children}</>
 
   return (
     <div style={{ background: 'var(--bg)', minHeight: '100vh' }}>

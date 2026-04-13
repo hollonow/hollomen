@@ -30,14 +30,19 @@ export default function SetPasswordPage() {
     setLoading(true)
     setError('')
 
+    // Timeout fallback — if updateUser hangs (Supabase processing delay),
+    // navigate anyway since the session is already valid from the invite token.
+    const fallback = setTimeout(() => { window.location.href = '/' }, 6000)
+
     const { error } = await supabase.auth.updateUser({ password })
+
+    clearTimeout(fallback)
 
     if (error) {
       setError(error.message)
       setLoading(false)
     } else {
-      router.push('/')
-      router.refresh()
+      window.location.href = '/'
     }
   }
 
@@ -69,7 +74,11 @@ export default function SetPasswordPage() {
             className="w-full bg-zinc-900 border border-zinc-800 text-white placeholder-zinc-600 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-zinc-600 transition-colors"
           />
 
-          {error && <p className="text-red-400 text-xs px-1">{error}</p>}
+          {error && (
+            <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3">
+              <p className="text-red-400 text-sm">{error}</p>
+            </div>
+          )}
 
           <button
             type="submit"
