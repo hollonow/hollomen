@@ -36,7 +36,7 @@ from retry_handler import (
 import re
 import uuid
 sys.path.insert(0, str(Path(__file__).parent))
-from notifiers.slack_notifier import notify_agent_complete, notify_error, notify_agent_start
+from notifiers.notifier import notify_agent_complete, notify_error, notify_agent_start
 
 # Configure logging
 log_dir = Path(__file__).parent.parent / 'logs'

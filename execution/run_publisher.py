@@ -37,7 +37,7 @@ from supabase_manager import SupabaseManager
 from publishers.woocommerce_publisher import WooCommercePublisher
 
 sys.path.insert(0, str(Path(__file__).parent))
-from notifiers.slack_notifier import notify_agent_complete, notify_agent_start, notify_error, notify_product_live
+from notifiers.notifier import notify_agent_complete, notify_agent_start, notify_error, notify_product_live
 
 # ─── Logging ──────────────────────────────────────────────────────────────────
 log_dir = Path(__file__).parent.parent / 'logs'

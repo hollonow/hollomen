@@ -34,7 +34,7 @@ from retry_handler import (
     categorize_error, format_error_for_notes
 )
 sys.path.insert(0, str(Path(__file__).parent))
-from notifiers.slack_notifier import notify_agent_complete, notify_error, notify_agent_start
+from notifiers.notifier import notify_agent_complete, notify_error, notify_agent_start, notify_needs_review
 
 # Configure logging
 log_dir = Path(__file__).parent.parent / 'logs'
@@ -262,6 +262,7 @@ class ResearcherOrchestrator:
             # Track if sent to review
             if final_status == self.REVIEW_STATUS:
                 stats.needs_review += 1
+                notify_needs_review(product_id, result.designer_brand, result.product_type)
 
             # Track brands found
             brand = result.designer_brand
