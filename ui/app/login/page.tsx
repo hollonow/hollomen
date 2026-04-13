@@ -15,8 +15,25 @@ export default function LoginPage() {
   const supabase = createClient()
 
   useEffect(() => {
-    // Supabase always redirects to the Site URL (this page) with tokens in the hash.
-    // We intercept here and call setSession() directly so the user reaches the right page.
+    // PKCE flow (newer Supabase default): token arrives as ?token_hash=...&type=...
+    // This happens when Site URL is set to /login and resetPasswordForEmail redirectTo
+    // points elsewhere but Supabase falls back to Site URL.
+    const queryParams = new URLSearchParams(window.location.search)
+    const tokenHash   = queryParams.get('token_hash')
+    const queryType   = queryParams.get('type') as 'recovery' | 'invite' | null
+
+    if (tokenHash && queryType) {
+      supabase.auth.verifyOtp({ token_hash: tokenHash, type: queryType })
+        .then(({ error }) => {
+          if (error) { setError('That link has expired or is invalid. Please request a new one.'); return }
+          if (queryType === 'recovery') router.replace('/reset-password')
+          else if (queryType === 'invite') router.replace('/auth/set-password')
+          else router.replace('/')
+        })
+      return
+    }
+
+    // Implicit flow (legacy): token arrives in hash
     const hash = window.location.hash.replace(/^#/, '')
     const hashParams = new URLSearchParams(hash)
     const accessToken  = hashParams.get('access_token')
@@ -30,7 +47,6 @@ export default function LoginPage() {
     }
 
     if (accessToken && refreshToken) {
-      // Clear the hash from the URL bar so tokens aren't visible
       window.history.replaceState(null, '', window.location.pathname)
       supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
         .then(({ error }) => {
@@ -42,8 +58,7 @@ export default function LoginPage() {
       return
     }
 
-    // Query-param errors from /auth/confirm or /auth/callback
-    const queryParams = new URLSearchParams(window.location.search)
+    // Query-param errors from /auth/confirm or Supabase redirects
     const err = queryParams.get('error') ?? ''
     if (err.includes('expired') || err === 'link_invalid') {
       setError('That link has expired. Please request a new one.')

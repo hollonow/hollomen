@@ -13,17 +13,31 @@ export default function AuthConfirmPage() {
   const supabase = createClient()
 
   useEffect(() => {
-    const hash = window.location.hash.replace(/^#/, '')
-    const params = new URLSearchParams(hash)
+    const queryParams = new URLSearchParams(window.location.search)
+    const tokenHash   = queryParams.get('token_hash')
+    const queryType   = queryParams.get('type') as 'recovery' | 'invite' | null
 
+    // PKCE flow (newer Supabase default): token arrives as ?token_hash=...&type=...
+    if (tokenHash && queryType) {
+      supabase.auth.verifyOtp({ token_hash: tokenHash, type: queryType })
+        .then(({ error }) => {
+          if (error) { router.replace('/login?error=link_invalid'); return }
+          if (queryType === 'recovery') router.replace('/reset-password')
+          else if (queryType === 'invite') router.replace('/auth/set-password')
+          else router.replace('/')
+        })
+      return
+    }
+
+    // Implicit flow (legacy): token arrives as #access_token=...&refresh_token=...
+    const hash       = window.location.hash.replace(/^#/, '')
+    const params     = new URLSearchParams(hash)
     const accessToken  = params.get('access_token')
     const refreshToken = params.get('refresh_token')
-    const type         = params.get('type')         // 'recovery' | 'invite'
+    const type         = params.get('type') as 'recovery' | 'invite' | null
     const errorCode    = params.get('error_code')
     const errorDesc    = params.get('error_description')
 
-    // Supabase puts error info in the hash when the token is expired or invalid.
-    // Redirect to login with a readable message.
     if (errorCode || !accessToken || !refreshToken) {
       const msg = errorDesc
         ? encodeURIComponent(errorDesc.replace(/\+/g, ' '))
@@ -32,23 +46,13 @@ export default function AuthConfirmPage() {
       return
     }
 
-    // Explicitly establish the session from the hash tokens.
-    // This is more reliable than onAuthStateChange which can fire before
-    // React registers the listener.
     supabase.auth
       .setSession({ access_token: accessToken, refresh_token: refreshToken })
       .then(({ error }) => {
-        if (error) {
-          router.replace('/login?error=auth_failed')
-          return
-        }
-        if (type === 'recovery') {
-          router.replace('/reset-password')
-        } else if (type === 'invite') {
-          router.replace('/auth/set-password')
-        } else {
-          router.replace('/')
-        }
+        if (error) { router.replace('/login?error=auth_failed'); return }
+        if (type === 'recovery') router.replace('/reset-password')
+        else if (type === 'invite') router.replace('/auth/set-password')
+        else router.replace('/')
       })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
