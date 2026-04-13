@@ -10,6 +10,7 @@ interface UserRow {
   full_name: string | null
   role: 'admin' | 'viewer'
   created_at: string
+  is_super_admin: boolean
 }
 
 type Tab = 'team' | 'integrations' | 'pipeline'
@@ -68,7 +69,7 @@ function NavTab({ icon, label, active, onClick }: {
 }
 
 // ── Team Tab ──────────────────────────────────────────────────────────────────
-function TeamTab({ isAdmin }: { isAdmin: boolean }) {
+function TeamTab({ isAdmin, currentUserId }: { isAdmin: boolean; currentUserId: string | null }) {
   const [users, setUsers]             = useState<UserRow[]>([])
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole]   = useState<'admin' | 'viewer'>('viewer')
@@ -122,8 +123,11 @@ function TeamTab({ isAdmin }: { isAdmin: boolean }) {
     setConfirm(null); fetchUsers()
   }
 
+  // Derive superadmin status from loaded users (first by created_at)
+  const isSuperAdmin = users.length > 0 && users[0].id === currentUserId
+
   function initials(u: UserRow) {
-    return (u.full_name ?? u.email).slice(0, 2).toUpperCase()
+    return (u.full_name || u.email).slice(0, 2).toUpperCase()
   }
 
   function avatarColor(email: string) {
@@ -265,24 +269,36 @@ function TeamTab({ isAdmin }: { isAdmin: boolean }) {
               {/* Info */}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {u.full_name ?? u.email}
+                  {u.full_name || u.email}
                 </div>
                 {u.full_name && (
                   <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 1 }}>{u.email}</div>
                 )}
               </div>
 
-              {/* Role badge */}
-              <span style={{
-                fontFamily: 'var(--font-mono)', fontSize: 10.5, fontWeight: 600,
-                padding: '3px 9px', borderRadius: 6, letterSpacing: '0.4px',
-                background: u.role === 'admin' ? 'var(--teal-dim)' : 'var(--surface-2)',
-                color: u.role === 'admin' ? 'var(--teal)' : 'var(--text-muted)',
-                border: `1px solid ${u.role === 'admin' ? 'var(--teal-glow)' : 'var(--border)'}`,
-                textTransform: 'uppercase',
-              }}>
-                {u.role}
-              </span>
+              {/* Role / owner badge */}
+              {u.is_super_admin ? (
+                <span style={{
+                  fontFamily: 'var(--font-mono)', fontSize: 10.5, fontWeight: 600,
+                  padding: '3px 9px', borderRadius: 6, letterSpacing: '0.4px',
+                  background: 'rgba(234,179,8,0.12)', color: '#CA8A04',
+                  border: '1px solid rgba(234,179,8,0.25)',
+                  textTransform: 'uppercase',
+                }}>
+                  Owner
+                </span>
+              ) : (
+                <span style={{
+                  fontFamily: 'var(--font-mono)', fontSize: 10.5, fontWeight: 600,
+                  padding: '3px 9px', borderRadius: 6, letterSpacing: '0.4px',
+                  background: u.role === 'admin' ? 'var(--teal-dim)' : 'var(--surface-2)',
+                  color: u.role === 'admin' ? 'var(--teal)' : 'var(--text-muted)',
+                  border: `1px solid ${u.role === 'admin' ? 'var(--teal-glow)' : 'var(--border)'}`,
+                  textTransform: 'uppercase',
+                }}>
+                  {u.role}
+                </span>
+              )}
 
               {/* Role select */}
               {isAdmin && (
@@ -301,8 +317,8 @@ function TeamTab({ isAdmin }: { isAdmin: boolean }) {
                 </select>
               )}
 
-              {/* Remove */}
-              {isAdmin && (
+              {/* Remove — only superadmin can remove others; cannot remove themselves */}
+              {isSuperAdmin && u.id !== currentUserId && (
                 confirmingRemove === u.id ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
                     <span style={{ fontSize: 12, color: 'var(--error)' }}>Remove?</span>
@@ -600,7 +616,7 @@ function PipelineTab() {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function SettingsPage() {
-  const { isAdmin, loading } = useUser()
+  const { isAdmin, loading, user } = useUser()
   const [tab, setTab] = useState<Tab>('team')
 
   if (!loading && !isAdmin) {
@@ -652,7 +668,7 @@ export default function SettingsPage() {
 
           {/* Content */}
           <div style={{ flex: 1, minWidth: 0 }}>
-            {tab === 'team'         && <TeamTab isAdmin={isAdmin} />}
+            {tab === 'team'         && <TeamTab isAdmin={isAdmin} currentUserId={user?.id ?? null} />}
             {tab === 'integrations' && <IntegrationsTab />}
             {tab === 'pipeline'     && <PipelineTab />}
           </div>

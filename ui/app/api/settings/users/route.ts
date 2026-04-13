@@ -47,11 +47,16 @@ export async function GET() {
     return {
       id: authUser.id,
       email: authUser.email ?? '',
-      full_name: profile?.full_name ?? null,
+      // Normalize empty string → null so UI || fallback to email works correctly
+      full_name: profile?.full_name || null,
       role: profile?.role ?? 'viewer',
       created_at: profile?.created_at ?? authUser.created_at,
     }
   }).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
 
-  return NextResponse.json({ users })
+  // First user by created_at is the superadmin (workspace owner)
+  const superAdminId = users[0]?.id ?? null
+  const usersWithFlags = users.map(u => ({ ...u, is_super_admin: u.id === superAdminId }))
+
+  return NextResponse.json({ users: usersWithFlags })
 }
