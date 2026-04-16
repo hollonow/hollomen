@@ -30,7 +30,8 @@ from woocommerce import API
 
 logger = logging.getLogger(__name__)
 
-# Viewpoint priority — front-view becomes the featured/thumbnail image
+# Viewpoint priority — determines featured image selection and gallery order.
+# Front-view is always preferred as the hero/featured image.
 VIEWPOINT_PRIORITY = ['front', 'side', 'back', 'sole', 'overhead', 'inside', 'on-feet', 'on_feet', 'detail']
 
 
@@ -110,6 +111,23 @@ class WooCommercePublisher:
         return resp.content
 
     # ─────────────────────────────────────────────
+    # VIEWPOINT DETECTION
+    # ─────────────────────────────────────────────
+
+    def _get_viewpoint_rank(self, filename: str) -> int:
+        """
+        Return the priority rank of a viewpoint from its filename.
+        Lower number = higher priority (front=0 is best for hero image).
+        Returns len(VIEWPOINT_PRIORITY) if no viewpoint found (lowest priority).
+        """
+        name_lower = filename.lower().replace('-', '').replace('_', '')
+        for i, vp in enumerate(VIEWPOINT_PRIORITY):
+            vp_clean = vp.replace('-', '').replace('_', '')
+            if vp_clean in name_lower:
+                return i
+        return len(VIEWPOINT_PRIORITY)
+
+    # ─────────────────────────────────────────────
     # WORDPRESS MEDIA LIBRARY
     # ─────────────────────────────────────────────
 
@@ -153,21 +171,33 @@ class WooCommercePublisher:
         """
         Download all WebP images from Cloudinary → upload to WP Media Library.
         Returns (featured_image_id, gallery_image_ids).
-        The front-view image is set as featured; all others go to gallery.
+
+        FIX: Images are now sorted by VIEWPOINT_PRIORITY before uploading.
+        The highest-priority viewpoint (front-view) is always set as the featured/hero image.
+        This prevents sole-view or back-view from accidentally becoming the product thumbnail.
         """
         resources = self._list_cloudinary_webp(product_id)
         if not resources:
             logger.warning(f'No WebP files in Cloudinary for product {product_id}')
             return None, []
 
-        logger.info(f'Uploading {len(resources)} images to WordPress Media Library...')
+        # ── FIX 2: Sort by viewpoint priority before uploading ──────────────
+        # This ensures front-view is always first regardless of alphabetical order.
+        # Without this sort, alphabetical ordering could place back-view or detail-view
+        # before front-view, making them candidates for the featured image slot.
+        def sort_key(r):
+            filename = r['public_id'].split('/')[-1]
+            return self._get_viewpoint_rank(filename)
+
+        resources_sorted = sorted(resources, key=sort_key)
+        logger.info(f'Uploading {len(resources_sorted)} images to WordPress Media Library...')
+        logger.info(f'  Upload order: {[r["public_id"].split("/")[-1] for r in resources_sorted]}')
 
         featured_id: Optional[int] = None
         gallery_ids: List[int] = []
 
-        for r in resources:
+        for r in resources_sorted:
             public_id = r['public_id']
-            # Filename: last segment of public_id + .webp
             filename = public_id.split('/')[-1] + '.webp'
             name_lower = filename.lower()
 
@@ -186,20 +216,15 @@ class WooCommercePublisher:
                 if media_id is None:
                     continue
 
-                is_front = 'front' in name_lower
-                if is_front and featured_id is None:
+                # First image uploaded is always the best viewpoint (front-view if exists)
+                if featured_id is None:
                     featured_id = media_id
-                    logger.info(f'    → Featured image set (front-view)')
+                    logger.info(f'    → Featured image: {filename} (viewpoint rank={self._get_viewpoint_rank(filename)})')
                 else:
                     gallery_ids.append(media_id)
 
             except Exception as e:
                 logger.error(f'    Error processing {public_id}: {e}')
-
-        # Fallback: use first gallery image as featured if no front-view found
-        if featured_id is None and gallery_ids:
-            featured_id = gallery_ids.pop(0)
-            logger.info('    No front-view found — using first image as featured')
 
         logger.info(f'Images ready: 1 featured + {len(gallery_ids)} gallery')
         return featured_id, gallery_ids
@@ -211,25 +236,51 @@ class WooCommercePublisher:
     def parse_sizes(self, english_translation: str, raw_chinese: str) -> List[str]:
         """
         Extract EU shoe sizes (35–47) from supplier text.
-        Handles both explicit lists (38 39 40 41) and ranges (38-44).
+
+        FIX: Three improvements over the original:
+
+        1. Handles ranges adjacent to Chinese characters (e.g. 码：38-44 or 码38-44).
+           The original \b word boundary failed when Chinese chars were directly adjacent
+           to numbers — Chinese chars are non-word chars so \b was unreliable.
+
+        2. Strips parenthetical custom-order notes (e.g. (45订做不退换)) BEFORE parsing
+           so custom/special sizes don't get included in the standard size list.
+
+        3. Prioritises range format over explicit list when both are present, because
+           supplier text like "码：38-44" is an unambiguous size range declaration,
+           whereas scattered numbers in the full translation (prices, model numbers)
+           can produce false positives in the explicit regex.
         """
         text = f'{english_translation or ""} {raw_chinese or ""}'
 
-        # Try explicit size list first (e.g. "38 39 40 41 42")
-        explicit = re.findall(r'\b(3[5-9]|4[0-7])\b', text)
-        if explicit:
-            sizes = sorted(set(explicit), key=int)
-            logger.info(f'Sizes parsed (explicit): {sizes}')
-            return sizes
+        # ── Step 1: Strip parenthetical custom-order annotations ────────────
+        # e.g. "(45订做不退换)" = "size 45 is custom order, no returns"
+        # These sizes should NOT appear as available options in the dropdown.
+        text_clean = re.sub(r'\([^)]*[\u4e00-\u9fff][^)]*\)', '', text)
 
-        # Try range (e.g. "38-44" or "38–44")
-        range_match = re.search(r'\b(3[5-9]|4[0-7])\s*[-–]\s*(3[5-9]|4[0-7])\b', text)
+        # ── Step 2: Try range first (most reliable for supplier text) ────────
+        # Handles: 38-44, 38–44, 38 - 44, 码：38-44, 码38-44
+        # Using (?<!\d) and (?!\d) instead of \b to handle adjacent Chinese chars
+        range_match = re.search(
+            r'(?<!\d)(3[5-9]|4[0-7])\s*[-–]\s*(3[5-9]|4[0-7])(?!\d)',
+            text_clean
+        )
         if range_match:
             start, end = int(range_match.group(1)), int(range_match.group(2))
             if start <= end:
                 sizes = [str(s) for s in range(start, end + 1)]
                 logger.info(f'Sizes parsed (range {start}-{end}): {sizes}')
                 return sizes
+
+        # ── Step 3: Fall back to explicit list ────────────────────────────
+        # Only used when no range is found. Looks for standalone EU sizes (35-47).
+        # Using (?<!\d) and (?!\d) to avoid matching digits inside larger numbers
+        # (e.g. price "180" should not match as "18" + "0").
+        explicit = re.findall(r'(?<!\d)(3[5-9]|4[0-7])(?!\d)', text_clean)
+        if explicit:
+            sizes = sorted(set(explicit), key=int)
+            logger.info(f'Sizes parsed (explicit): {sizes}')
+            return sizes
 
         logger.warning('No EU sizes found in supplier text — product will be SIMPLE type')
         return []
@@ -399,8 +450,17 @@ class WooCommercePublisher:
         if tags:
             payload['tags'] = tags
 
-        # Build attributes: Brand + Color + Material (non-variation), then Size (variation)
+        # Build attributes: Size (variation) first, then Brand + Color + Material (display only)
+        # Size must be position=0 and variation=True to appear as a dropdown on the product page.
         attributes = []
+        if sizes:
+            attributes.append({
+                'name':      'Size',
+                'position':  0,
+                'visible':   True,
+                'variation': True,
+                'options':   sizes,
+            })
         if brand:
             attributes.append({
                 'name':      'Brand',
@@ -425,14 +485,6 @@ class WooCommercePublisher:
                 'variation': False,
                 'options':   [material],
             })
-        if sizes:
-            attributes.append({
-                'name':      'Size',
-                'position':  0,
-                'visible':   True,
-                'variation': True,
-                'options':   sizes,
-            })
 
         if attributes:
             payload['attributes'] = attributes
@@ -442,6 +494,12 @@ class WooCommercePublisher:
             f'Material={material or "—"} | Tags={len(tags)} | '
             f'Categories={len(categories)} | SKU=HE-{row.get("product_id","")}'
         )
+
+        # Log size summary for verification
+        if sizes:
+            logger.info(f'  Sizes ({len(sizes)}): {" | ".join(sizes)}')
+        else:
+            logger.warning('  No sizes found — creating SIMPLE product (no size dropdown)')
 
         try:
             resp = self.wcapi.post('products', payload)
@@ -509,14 +567,13 @@ class WooCommercePublisher:
                 auth=self.wp_auth,
                 timeout=self.timeout,
             )
-            # 200 = listed media, 401 = bad credentials, 403 = firewall blocking, 404 = WP not found
             if resp.status_code in (200, 201):
                 logger.info('[OK] WordPress REST API (media endpoint auth verified)')
             elif resp.status_code == 401:
                 logger.error(f'[FAIL] WordPress REST API 401 Unauthorized — check WP_USERNAME / WP_APP_PASSWORD')
                 ok = False
             elif resp.status_code == 403:
-                logger.error(f'[FAIL] WordPress REST API 403 Forbidden — /wp-json/wp/v2/ is still blocked by firewall/security plugin. Ask host to whitelist this path (same fix needed as WC REST API).')
+                logger.error(f'[FAIL] WordPress REST API 403 Forbidden — /wp-json/wp/v2/ is still blocked by firewall/security plugin.')
                 ok = False
             else:
                 logger.error(f'[FAIL] WordPress REST API returned {resp.status_code}: {resp.text[:300]}')
@@ -542,7 +599,7 @@ class WooCommercePublisher:
     def process_product(self, row: Dict) -> PublishResult:
         """
         Full publish pipeline for one product row.
-          1. Upload Cloudinary images → WP Media Library
+          1. Upload Cloudinary images → WP Media Library (sorted by viewpoint priority)
           2. Parse size variations from supplier text
           3. Create WC variable product draft
           4. Create size variations (no prices)
