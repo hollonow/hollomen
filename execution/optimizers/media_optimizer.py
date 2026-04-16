@@ -457,9 +457,10 @@ class MediaOptimizer:
             viewpoint_counts: Dict[str, int] = {}
             webp_files = []
 
-            # Sort: front-view first (hero candidate), then by name
+            # Sort by viewpoint priority: front > overhead > side > back > sole > inside > on-feet > detail
+            VIEWPOINT_ORDER = ['front-view', 'overhead-view', 'side-view', 'back-view', 'sole-view', 'inside-view', 'on-feet', 'detail-view']
             downloaded.sort(key=lambda x: (
-                0 if x['viewpoint'] == 'front-view' else 1,
+                VIEWPOINT_ORDER.index(x['viewpoint']) if x['viewpoint'] in VIEWPOINT_ORDER else len(VIEWPOINT_ORDER),
                 x['name']
             ))
 

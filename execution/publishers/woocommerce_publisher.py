@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 # Viewpoint priority — determines featured image selection and gallery order.
 # Front-view is always preferred as the hero/featured image.
-VIEWPOINT_PRIORITY = ['front', 'side', 'back', 'sole', 'overhead', 'inside', 'on-feet', 'on_feet', 'detail']
+VIEWPOINT_PRIORITY = ['front', 'overhead', 'side', 'back', 'sole', 'inside', 'on-feet', 'on_feet', 'detail']
 
 
 class PublishResult:
