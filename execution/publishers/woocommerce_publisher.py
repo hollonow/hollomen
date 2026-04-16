@@ -259,10 +259,11 @@ class WooCommercePublisher:
         text_clean = re.sub(r'\([^)]*[\u4e00-\u9fff][^)]*\)', '', text)
 
         # ── Step 2: Try range first (most reliable for supplier text) ────────
-        # Handles: 38-44, 38–44, 38 - 44, 码：38-44, 码38-44
+        # Handles: 38-44, 38–44, 38—44, 38－44, 38 - 44, 码：38-44, 码38-44
+        # Dash class covers: ASCII hyphen, en-dash, em-dash, fullwidth hyphen (U+FF0D)
         # Using (?<!\d) and (?!\d) instead of \b to handle adjacent Chinese chars
         range_match = re.search(
-            r'(?<!\d)(3[5-9]|4[0-7])\s*[-–]\s*(3[5-9]|4[0-7])(?!\d)',
+            r'(?<!\d)(3[5-9]|4[0-7])\s*[-–—－]\s*(3[5-9]|4[0-7])(?!\d)',
             text_clean
         )
         if range_match:
@@ -279,7 +280,14 @@ class WooCommercePublisher:
         explicit = re.findall(r'(?<!\d)(3[5-9]|4[0-7])(?!\d)', text_clean)
         if explicit:
             sizes = sorted(set(explicit), key=int)
-            logger.info(f'Sizes parsed (explicit): {sizes}')
+            # Safety net: if exactly 2 values look like range endpoints, expand them.
+            # Catches any dash variant the range regex missed (e.g. rare Unicode dashes).
+            if len(sizes) == 2 and int(sizes[1]) - int(sizes[0]) <= 12:
+                start, end = int(sizes[0]), int(sizes[1])
+                sizes = [str(s) for s in range(start, end + 1)]
+                logger.info(f'Sizes expanded (implicit range {start}-{end}): {sizes}')
+            else:
+                logger.info(f'Sizes parsed (explicit): {sizes}')
             return sizes
 
         logger.warning('No EU sizes found in supplier text — product will be SIMPLE type')
