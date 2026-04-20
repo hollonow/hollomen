@@ -30,8 +30,14 @@ const IN_PROGRESS_STATUSES = new Set([
   'READY_FOR_SEO', 'WRITING_SEO', 'READY_FOR_PUBLISH', 'OPTIMIZING', 'PUBLISHING',
 ])
 
+const AGENT1_FAILURE_STATUSES = new Set(['INVALID_URL', 'DISCOVERY_EMPTY', 'DISCOVERY_FAILED', 'DUPLICATE'])
+
+function isFailed(status: string): boolean {
+  return status?.includes('FAILED') || AGENT1_FAILURE_STATUSES.has(status)
+}
+
 function pillStyle(status: string): React.CSSProperties {
-  if (status?.includes('FAILED')) return { background: 'var(--error-dim)',   color: 'var(--error)' }
+  if (isFailed(status))           return { background: 'var(--error-dim)',   color: 'var(--error)' }
   if (status === 'NEEDS_REVIEW')  return { background: 'var(--warning-dim)', color: 'var(--warning)' }
   if (status === 'PENDING_APPROVAL') return { background: 'var(--indigo-dim)', color: 'var(--indigo)' }
   if (status === 'PUBLISHED' || status === 'LIVE') return { background: 'var(--success-dim)', color: 'var(--success)' }
@@ -68,7 +74,7 @@ function TableRow({ p, onApprove, onOpenReview, onDetail, onRetry, onRecover, se
 }) {
   const [hovered, setHovered] = useState(false)
   const isReview   = p.status === 'NEEDS_REVIEW'
-  const isFailed   = (p.status ?? '').includes('FAILED')
+  const isFailedRow = isFailed(p.status ?? '')
   const isScrapped = p.status === 'SCRAPPED'
   const imageUrl = p.main_image_id ? `${CLOUDINARY_BASE}/w_80,h_80,c_fill/${p.main_image_id}` : null
   const name  = productName(p)
@@ -162,7 +168,7 @@ function TableRow({ p, onApprove, onOpenReview, onDetail, onRetry, onRecover, se
             </button>
           </div>
         )}
-        {isFailed && (
+        {isFailedRow && (
           <button
             onClick={() => onRetry(p)}
             style={{
@@ -289,7 +295,7 @@ export default function PipelinePage() {
   async function handleBulkRetry() {
     setBulkWorking(true)
     const failedIds = [...selected].filter(id =>
-      products.find(p => p.product_id === id)?.status?.includes('FAILED')
+      isFailed(products.find(p => p.product_id === id)?.status ?? '')
     )
     const agentsSeen = new Set<number>()
     for (const id of failedIds) {
@@ -412,7 +418,7 @@ export default function PipelinePage() {
       const s = p.status ?? ''
       if (filterTab === 'NEEDS_REVIEW'     && s !== 'NEEDS_REVIEW')     return false
       if (filterTab === 'PENDING_APPROVAL' && s !== 'PENDING_APPROVAL') return false
-      if (filterTab === 'failed'   && !s.includes('FAILED'))            return false
+      if (filterTab === 'failed'   && !isFailed(s))                      return false
       if (filterTab === 'SCRAPPED' && s !== 'SCRAPPED')                 return false
       if (filterTab === 'progress' && !IN_PROGRESS_STATUSES.has(s))     return false
       if (filterTab === 'all'      && s === 'SCRAPPED')                  return false
@@ -666,7 +672,7 @@ export default function PipelinePage() {
                   product={p}
                   onDetail={setDetail}
                   onReview={p.status === 'NEEDS_REVIEW' ? () => setReviewProduct(p) : undefined}
-                  onRetry={(p.status ?? '').includes('FAILED') ? handleRetry : undefined}
+                  onRetry={isFailed(p.status ?? '') ? handleRetry : undefined}
                   onRecover={p.status === 'SCRAPPED' ? () => handleRecover(p.product_id) : undefined}
                   selectable
                   selected={selected.has(p.product_id)}
@@ -702,7 +708,7 @@ export default function PipelinePage() {
       {selected.size > 0 && (() => {
         const selectedProducts = [...selected].map(id => products.find(p => p.product_id === id)).filter(Boolean) as Product[]
         const hasReview = selectedProducts.some(p => p.status === 'NEEDS_REVIEW')
-        const hasFailed = selectedProducts.some(p => (p.status ?? '').includes('FAILED'))
+        const hasFailed = selectedProducts.some(p => isFailed(p.status ?? ''))
         return (
           <div style={{
             position: 'fixed', bottom: 28, left: '50%', transform: 'translateX(-50%)',
@@ -740,7 +746,7 @@ export default function PipelinePage() {
                   opacity: bulkWorking ? 0.6 : 1, transition: 'opacity 150ms ease',
                 }}
               >
-                {bulkWorking ? 'Working…' : `↺ Retry ${selectedProducts.filter(p => (p.status ?? '').includes('FAILED')).length}`}
+                {bulkWorking ? 'Working…' : `↺ Retry ${selectedProducts.filter(p => isFailed(p.status ?? '')).length}`}
               </button>
             )}
             <button

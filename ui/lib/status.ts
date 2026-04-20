@@ -32,6 +32,9 @@ const STATUS_LABELS: Record<string, string> = {
   DUPLICATE:              'DUPLICATE',
   SCRAPPED:               'SCRAPPED',
   DISCOVERED:             'DISCOVERED',
+  INVALID_URL:            'INVALID URL',
+  DISCOVERY_EMPTY:        'NO ALBUMS',
+  DISCOVERY_FAILED:       'DISCOVERY FAILED',
 }
 
 /**
